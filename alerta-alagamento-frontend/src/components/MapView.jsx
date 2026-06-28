@@ -1,92 +1,73 @@
 import React from 'react';
 import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet';
-import bairrosRecife from '../data/bairros-do-recife.json'; // Seu arquivo oficial adaptado
+import bairrosRecife from '../data/bairros-do-recife.json';
 
-const MapView = () => {
-    // Centro geográfico aproximado para focar Recife na tela
+const MapView = ({ onBairroClick }) => { // <-- Recebe a função como prop
     const positionRecife = [-8.05428, -34.92842];
 
-    // 1. Simulador de Risco para a Sprint 1
-    // Como o GeoJSON oficial não tem dados de alagamento, usamos o ID do bairro
-    // de forma determinística para espalhar as cores do MVP pela cidade.
-    const getMockStatus = (code) => {
-        if (code % 7 === 0) return 'emergencia'; // Vermelho
-        if (code % 5 === 0) return 'alerta';     // Laranja
-        if (code % 3 === 0) return 'atencao';    // Amarelo
-        return 'normal';                         // Verde
+    // Lógica determinística da Sprint 1 para gerar a cor e o status
+    const getMockData = (code) => {
+        if (code % 7 === 0) return { status: 'emergencia', score: 0.92 };
+        if (code % 5 === 0) return { status: 'alerta', score: 0.78 };
+        if (code % 3 === 0) return { status: 'atencao', score: 0.55 };
+        return { status: 'normal', score: 0.15 };
     };
 
-    // 2. Tradutor de Status para as Cores Hexadecimais Acessíveis (WCAG AA)
     const getColorByStatus = (status) => {
         switch (status) {
-            case 'normal': return '#22c55e';     // Verde
-            case 'atencao': return '#eab308';    // Amarelo
-            case 'alerta': return '#f97316';     // Laranja
-            case 'emergencia': return '#ef4444'; // Vermelho
-            default: return '#9ca3af';           // Cinza padrão
+            case 'normal': return '#22c55e';
+            case 'atencao': return '#eab308';
+            case 'alerta': return '#f97316';
+            case 'emergencia': return '#ef4444';
+            default: return '#9ca3af';
         }
     };
 
-    // 3. Estilização aplicada a cada polígono de bairro
     const styleFeature = (feature) => {
         const bairroCode = feature.properties.CBAIRRCODI;
-        const status = getMockStatus(bairroCode);
+        const { status } = getMockData(bairroCode);
 
         return {
             fillColor: getColorByStatus(status),
             weight: 1.5,
             opacity: 1,
-            color: '#ffffff', // Linhas divisórias brancas e limpas
-            fillOpacity: 0.65, // Transparência ideal para visualizar o mapa base abaixo
+            color: '#ffffff',
+            fillOpacity: 0.65,
         };
     };
 
-    // 4. Interatividade: Popups informativos ao clicar em um bairro
     const onEachFeature = (feature, layer) => {
         const nomeBairro = feature.properties.EBAIRRNOMEOF;
         const bairroCode = feature.properties.CBAIRRCODI;
-        const status = getMockStatus(bairroCode).toUpperCase();
+        const { status, score } = getMockData(bairroCode);
 
-        // Vincula um popup nativo do Leaflet com estilização básica
-        layer.bindPopup(`
-      <div style="font-family: sans-serif; min-width: 140px;">
-        <h3 style="margin: 0 0 4px 0; font-size: 14px; font-weight: bold; color: #1e3a8a;">
-          ${nomeBairro}
-        </h3>
-        <p style="margin: 0; font-size: 12px; color: #4b5563;">
-          Status: <strong style="color: ${getColorByStatus(getMockStatus(bairroCode))}">${status}</strong>
-        </p>
-      </div>
-    `);
-
-        // Efeito visual sutil de hover para dar sensação de app profissional
+        // Adiciona interatividade de clique para abrir o painel lateral
         layer.on({
-            mouseover: (e) => {
-                const l = e.target;
-                l.setStyle({ fillOpacity: 0.85, weight: 2.5 });
+            click: () => {
+                // Envia os dados do bairro clicado para o componente Pai (App.jsx)
+                onBairroClick({
+                    id: bairroCode,
+                    nome: nomeBairro,
+                    status: status,
+                    score: score
+                });
             },
-            mouseout: (e) => {
-                const l = e.target;
-                l.setStyle({ fillOpacity: 0.65, weight: 1.5 });
-            }
+            mouseover: (e) => { e.target.setStyle({ fillOpacity: 0.85, weight: 2.5 }); },
+            mouseout: (e) => { e.target.setStyle({ fillOpacity: 0.65, weight: 1.5 }); }
         });
     };
 
     return (
-        <div className="h-full w-full rounded-xl overflow-hidden shadow-xl border border-gray-200">
+        <div className="h-full w-full rounded-xl overflow-hidden shadow-xl border border-slate-200 bg-slate-100">
             <MapContainer
                 center={positionRecife}
                 zoom={12}
                 style={{ height: '100%', width: '100%' }}
-                scrollWheelZoom={true}
             >
-                {/* Camada do OpenStreetMap com visual clean */}
                 <TileLayer
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    attribution='&copy; OpenStreetMap contributors'
                 />
-
-                {/* Renderização da sua malha geográfica oficial */}
                 <GeoJSON
                     data={bairrosRecife}
                     style={styleFeature}
