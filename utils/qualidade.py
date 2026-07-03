@@ -6,12 +6,6 @@ def validar_schema(registros: list, campos_esperados: set, nome_fonte: str):
     if faltantes:
         raise ValueError(f"[{nome_fonte}] campos ausentes na resposta: {faltantes}. A API pode ter mudado.")
 
-def validar_intervalo(df, coluna: str, minimo: float, maximo: float):
-    """Lança erro se algum valor estiver fora do intervalo esperado. Para a pipeline em vez de propagar dado ruim."""
-    fora_do_intervalo = df.filter(f"{coluna} < {minimo} OR {coluna} > {maximo}").count()
-    if fora_do_intervalo > 0:
-        raise ValueError(f"{fora_do_intervalo} linhas com '{coluna}' fora de [{minimo}, {maximo}]")
-
 def validar_nulos(df, colunas: list):
     """Garante que colunas críticas não tenham nulos antes de avançar de camada."""
     for col in colunas:

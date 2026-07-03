@@ -124,7 +124,7 @@ print(pdf_estacoes[["estacao", "rpa"]].drop_duplicates().to_string(index=False))
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Bloco 4 — IDW restrito à própria RPA
+# MAGIC ## Bloco 4 — IDW(Inverse Distance Weighted) restrito à própria RPA
 # MAGIC
 # MAGIC Para cada bairro, calculamos o valor de chuva como a média
 # MAGIC ponderada por distância (peso = 1/distância²) usando SOMENTE as
