@@ -1,0 +1,472 @@
+[
+  {
+    "bairro": "Aflitos",
+    "latitude": -8.04025,
+    "longitude": -34.896325
+  },
+  {
+    "bairro": "Afogados",
+    "latitude": -8.077599,
+    "longitude": -34.911489
+  },
+  {
+    "bairro": "Agua Fria",
+    "latitude": -8.016507,
+    "longitude": -34.896563
+  },
+  {
+    "bairro": "Alto Do Mandu",
+    "latitude": -8.021915,
+    "longitude": -34.927937
+  },
+  {
+    "bairro": "Alto Jose Bonifacio",
+    "latitude": -8.013351,
+    "longitude": -34.9129
+  },
+  {
+    "bairro": "Alto Jose Do Pinho",
+    "latitude": -8.022161,
+    "longitude": -34.908407
+  },
+  {
+    "bairro": "Alto Santa Terezinha",
+    "latitude": -8.01576,
+    "longitude": -34.908097
+  },
+  {
+    "bairro": "Apipucos",
+    "latitude": -8.018746,
+    "longitude": -34.937363
+  },
+  {
+    "bairro": "Areias",
+    "latitude": -8.095111,
+    "longitude": -34.931714
+  },
+  {
+    "bairro": "Arruda",
+    "latitude": -8.024538,
+    "longitude": -34.890062
+  },
+  {
+    "bairro": "Barro",
+    "latitude": -8.098991,
+    "longitude": -34.951627
+  },
+  {
+    "bairro": "Beberibe",
+    "latitude": -8.005283,
+    "longitude": -34.89646
+  },
+  {
+    "bairro": "Boa Viagem",
+    "latitude": -8.127833,
+    "longitude": -34.90279
+  },
+  {
+    "bairro": "Boa Vista",
+    "latitude": -8.058339,
+    "longitude": -34.890182
+  },
+  {
+    "bairro": "Bomba Do Hemeterio",
+    "latitude": -8.020955,
+    "longitude": -34.901795
+  },
+  {
+    "bairro": "Bongi",
+    "latitude": -8.065968,
+    "longitude": -34.918559
+  },
+  {
+    "bairro": "Brasilia Teimosa",
+    "latitude": -8.080003,
+    "longitude": -34.877791
+  },
+  {
+    "bairro": "Brejo Da Guabiraba",
+    "latitude": -7.992693,
+    "longitude": -34.933017
+  },
+  {
+    "bairro": "Brejo De Beberibe",
+    "latitude": -7.998462,
+    "longitude": -34.923288
+  },
+  {
+    "bairro": "Cabanga",
+    "latitude": -8.080285,
+    "longitude": -34.894939
+  },
+  {
+    "bairro": "Cacote",
+    "latitude": -8.101054,
+    "longitude": -34.931417
+  },
+  {
+    "bairro": "Cajueiro",
+    "latitude": -8.011372,
+    "longitude": -34.885301
+  },
+  {
+    "bairro": "Campina Do Barreto",
+    "latitude": -8.017275,
+    "longitude": -34.881809
+  },
+  {
+    "bairro": "Campo Grande",
+    "latitude": -8.030804,
+    "longitude": -34.879663
+  },
+  {
+    "bairro": "Casa Amarela",
+    "latitude": -8.02613,
+    "longitude": -34.917087
+  },
+  {
+    "bairro": "Casa Forte",
+    "latitude": -8.033863,
+    "longitude": -34.918604
+  },
+  {
+    "bairro": "Caxanga",
+    "latitude": -8.027155,
+    "longitude": -34.951819
+  },
+  {
+    "bairro": "Cidade Universitaria",
+    "latitude": -8.05262,
+    "longitude": -34.950249
+  },
+  {
+    "bairro": "Coelhos",
+    "latitude": -8.067715,
+    "longitude": -34.889715
+  },
+  {
+    "bairro": "Cohab",
+    "latitude": -8.123067,
+    "longitude": -34.951461
+  },
+  {
+    "bairro": "Coqueiral",
+    "latitude": -8.087262,
+    "longitude": -34.968614
+  },
+  {
+    "bairro": "Cordeiro",
+    "latitude": -8.050152,
+    "longitude": -34.92724
+  },
+  {
+    "bairro": "Corrego Do Jenipapo",
+    "latitude": -8.002571,
+    "longitude": -34.936588
+  },
+  {
+    "bairro": "Curado",
+    "latitude": -8.071485,
+    "longitude": -34.959091
+  },
+  {
+    "bairro": "Derby",
+    "latitude": -8.055924,
+    "longitude": -34.900116
+  },
+  {
+    "bairro": "Dois Irmaos",
+    "latitude": -8.006367,
+    "longitude": -34.947334
+  },
+  {
+    "bairro": "Dois Unidos",
+    "latitude": -7.998302,
+    "longitude": -34.91262
+  },
+  {
+    "bairro": "Encruzilhada",
+    "latitude": -8.035769,
+    "longitude": -34.890914
+  },
+  {
+    "bairro": "Engenho Do Meio",
+    "latitude": -8.05624,
+    "longitude": -34.942718
+  },
+  {
+    "bairro": "Espinheiro",
+    "latitude": -8.043782,
+    "longitude": -34.891402
+  },
+  {
+    "bairro": "Estancia",
+    "latitude": -8.084256,
+    "longitude": -34.930458
+  },
+  {
+    "bairro": "Fundao",
+    "latitude": -8.014317,
+    "longitude": -34.891157
+  },
+  {
+    "bairro": "Gracas",
+    "latitude": -8.04569,
+    "longitude": -34.900061
+  },
+  {
+    "bairro": "Guabiraba",
+    "latitude": -7.958344,
+    "longitude": -34.953402
+  },
+  {
+    "bairro": "Hipodromo",
+    "latitude": -8.032001,
+    "longitude": -34.887853
+  },
+  {
+    "bairro": "Ibura",
+    "latitude": -8.120108,
+    "longitude": -34.93223
+  },
+  {
+    "bairro": "Ilha Do Leite",
+    "latitude": -8.065178,
+    "longitude": -34.894364
+  },
+  {
+    "bairro": "Ilha Do Retiro",
+    "latitude": -8.064084,
+    "longitude": -34.904785
+  },
+  {
+    "bairro": "Ilha Joana Bezerra",
+    "latitude": -8.070742,
+    "longitude": -34.899008
+  },
+  {
+    "bairro": "Imbiribeira",
+    "latitude": -8.105228,
+    "longitude": -34.911746
+  },
+  {
+    "bairro": "Ipsep",
+    "latitude": -8.109833,
+    "longitude": -34.921657
+  },
+  {
+    "bairro": "Iputinga",
+    "latitude": -8.036231,
+    "longitude": -34.936193
+  },
+  {
+    "bairro": "Jaqueira",
+    "latitude": -8.037259,
+    "longitude": -34.904953
+  },
+  {
+    "bairro": "Jardim Sao Paulo",
+    "latitude": -8.082012,
+    "longitude": -34.944042
+  },
+  {
+    "bairro": "Jiquia",
+    "latitude": -8.084544,
+    "longitude": -34.924377
+  },
+  {
+    "bairro": "Jordao",
+    "latitude": -8.135748,
+    "longitude": -34.936714
+  },
+  {
+    "bairro": "Linha Do Tiro",
+    "latitude": -8.009113,
+    "longitude": -34.905054
+  },
+  {
+    "bairro": "Macaxeira",
+    "latitude": -8.011838,
+    "longitude": -34.930533
+  },
+  {
+    "bairro": "Madalena",
+    "latitude": -8.054263,
+    "longitude": -34.9083
+  },
+  {
+    "bairro": "Mangabeira",
+    "latitude": -8.024493,
+    "longitude": -34.902855
+  },
+  {
+    "bairro": "Mangueira",
+    "latitude": -8.07671,
+    "longitude": -34.920712
+  },
+  {
+    "bairro": "Monteiro",
+    "latitude": -8.026284,
+    "longitude": -34.929223
+  },
+  {
+    "bairro": "Morro Da Conceicao",
+    "latitude": -8.019695,
+    "longitude": -34.914299
+  },
+  {
+    "bairro": "Mustardinha",
+    "latitude": -8.071499,
+    "longitude": -34.919409
+  },
+  {
+    "bairro": "Nova Descoberta",
+    "latitude": -8.004863,
+    "longitude": -34.927922
+  },
+  {
+    "bairro": "Paissandu",
+    "latitude": -8.063779,
+    "longitude": -34.898232
+  },
+  {
+    "bairro": "Parnamirim",
+    "latitude": -8.034165,
+    "longitude": -34.911059
+  },
+  {
+    "bairro": "Passarinho",
+    "latitude": -7.979789,
+    "longitude": -34.921055
+  },
+  {
+    "bairro": "Pau Ferro",
+    "latitude": -7.967023,
+    "longitude": -34.972345
+  },
+  {
+    "bairro": "Peixinhos",
+    "latitude": -8.019079,
+    "longitude": -34.876808
+  },
+  {
+    "bairro": "Pina",
+    "latitude": -8.093969,
+    "longitude": -34.894013
+  },
+  {
+    "bairro": "Poco",
+    "latitude": -8.035548,
+    "longitude": -34.923269
+  },
+  {
+    "bairro": "Ponto De Parada",
+    "latitude": -8.02949,
+    "longitude": -34.892636
+  },
+  {
+    "bairro": "Porto Da Madeira",
+    "latitude": -8.007384,
+    "longitude": -34.89007
+  },
+  {
+    "bairro": "Prado",
+    "latitude": -8.060129,
+    "longitude": -34.916731
+  },
+  {
+    "bairro": "Recife",
+    "latitude": -8.052897,
+    "longitude": -34.868282
+  },
+  {
+    "bairro": "Rosarinho",
+    "latitude": -8.032434,
+    "longitude": -34.897312
+  },
+  {
+    "bairro": "San Martin",
+    "latitude": -8.069379,
+    "longitude": -34.929151
+  },
+  {
+    "bairro": "Sancho",
+    "latitude": -8.0848,
+    "longitude": -34.961648
+  },
+  {
+    "bairro": "Santana",
+    "latitude": -8.040213,
+    "longitude": -34.915378
+  },
+  {
+    "bairro": "Santo Amaro",
+    "latitude": -8.047932,
+    "longitude": -34.879526
+  },
+  {
+    "bairro": "Santo Antonio",
+    "latitude": -8.063345,
+    "longitude": -34.878557
+  },
+  {
+    "bairro": "Sao Jose",
+    "latitude": -8.073412,
+    "longitude": -34.886226
+  },
+  {
+    "bairro": "Sitio Dos Pintos",
+    "latitude": -8.012871,
+    "longitude": -34.958567
+  },
+  {
+    "bairro": "Soledade",
+    "latitude": -8.056841,
+    "longitude": -34.890079
+  },
+  {
+    "bairro": "Tamarineira",
+    "latitude": -8.030624,
+    "longitude": -34.902512
+  },
+  {
+    "bairro": "Tejipio",
+    "latitude": -8.089877,
+    "longitude": -34.957781
+  },
+  {
+    "bairro": "Torre",
+    "latitude": -8.043644,
+    "longitude": -34.909948
+  },
+  {
+    "bairro": "Torreao",
+    "latitude": -8.040337,
+    "longitude": -34.883471
+  },
+  {
+    "bairro": "Torroes",
+    "latitude": -8.061556,
+    "longitude": -34.936563
+  },
+  {
+    "bairro": "Toto",
+    "latitude": -8.08232,
+    "longitude": -34.96841
+  },
+  {
+    "bairro": "Varzea",
+    "latitude": -8.048406,
+    "longitude": -34.976274
+  },
+  {
+    "bairro": "Vasco Da Gama",
+    "latitude": -8.011983,
+    "longitude": -34.919312
+  },
+  {
+    "bairro": "Zumbi",
+    "latitude": -8.052838,
+    "longitude": -34.917561
+  }
+]
