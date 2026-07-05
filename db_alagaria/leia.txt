@@ -1,0 +1,11 @@
+acessar a API:
+http://127.0.0.1:8000/docs
+
+criar o banco:
+docker run --name pg_alagaria -e POSTGRES_PASSWORD=senha -e POSTGRES_DB=recife_gis -p 5432:5432 -d postgis/postgis
+
+rodar a API:
+uvicorn main:app --reload
+
+ligar o banco (necessário após reiniciar o pc e abrir o docker):
+docker start pg_alagaria
