@@ -61,6 +61,18 @@ POST /ingestao
 O corpo deve ser o array do `risco_bairros_atual.json`, no formato cru do
 notebook `08_logica_fuzzy.py`.
 
+Para fazer uma primeira carga local usando um arquivo JSON ja existente:
+
+```bash
+python scripts/ingest_gold_json.py ../frontend/src/data/riscoBairrosFallback.json
+```
+
+Ou, quando o pipeline gerar o arquivo oficial:
+
+```bash
+python scripts/ingest_gold_json.py data/risco_bairros_atual.json
+```
+
 ### Risco por bairro
 
 Este e o endpoint principal para o frontend:
