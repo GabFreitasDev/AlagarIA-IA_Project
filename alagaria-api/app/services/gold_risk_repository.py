@@ -8,9 +8,13 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import HTTPException
+from sqlalchemy import desc, func
+from sqlalchemy.orm import Session
 
 from app.config import get_settings
-from app.schemas import GoldRiskSnapshot, NeighborhoodRisk
+from app.database import get_session_factory, is_database_enabled
+from app.models import NeighborhoodRiskMeasurement
+from app.schemas import GoldRiskIngestionRecord, GoldRiskIngestionResponse, GoldRiskSnapshot, NeighborhoodRisk
 
 
 def _resolve_gold_path() -> Path:
@@ -134,7 +138,86 @@ def _normalize_search_text(value: str) -> str:
     return ascii_text.casefold().strip()
 
 
+def _measurement_to_neighborhood(record: NeighborhoodRiskMeasurement) -> NeighborhoodRisk:
+    return NeighborhoodRisk(
+        data=record.data_medicao.isoformat() if record.data_medicao else None,
+        municipio=record.municipio or "Recife",
+        bairro=record.bairro,
+        rpa=record.rpa,
+        elevacao_metros=record.elevacao_metros,
+        precipitacao_atual=record.precipitacao_atual,
+        chuva_1h=record.chuva_1h,
+        chuva_6h=record.chuva_6h,
+        chuva_12h=record.chuva_12h,
+        chuva_24h=record.chuva_24h,
+        altura_mare=record.altura_mare,
+        status_mare=record.status_mare,
+        precipitacao_prevista_24h=record.precipitacao_prevista_24h,
+        prob_alagamento=record.prob_alagamento,
+        alagamento_previsto=record.alagamento_previsto,
+        score_risco=record.score_risco or 0.0,
+        nivel_risco=record.nivel_risco or "desconhecido",
+    )
+
+
+def _measurement_to_raw_record(record: NeighborhoodRiskMeasurement) -> dict[str, Any]:
+    return {
+        "data": record.data_medicao.isoformat() if record.data_medicao else None,
+        "municipio": record.municipio,
+        "RPA": record.rpa,
+        "Bairro": record.bairro,
+        "elevacao_metros": record.elevacao_metros,
+        "precipitacao_atual": record.precipitacao_atual,
+        "1_hora": record.chuva_1h,
+        "6_horas": record.chuva_6h,
+        "12_horas": record.chuva_12h,
+        "24_horas": record.chuva_24h,
+        "altura_mare": record.altura_mare,
+        "status_mare": record.status_mare,
+        "precipitacao_prevista_24h": record.precipitacao_prevista_24h,
+        "prob_alagamento": record.prob_alagamento,
+        "alagamento_previsto": record.alagamento_previsto,
+        "score_risco": record.score_risco,
+        "nivel_risco": record.nivel_risco,
+    }
+
+
+def _latest_database_snapshot() -> GoldRiskSnapshot:
+    session_factory = get_session_factory()
+    if session_factory is None:
+        raise HTTPException(status_code=503, detail="Banco de dados nao configurado.")
+
+    with session_factory() as db:
+        latest_timestamp = db.query(func.max(NeighborhoodRiskMeasurement.data_medicao)).scalar()
+
+        if latest_timestamp is None:
+            raise HTTPException(
+                status_code=503,
+                detail="Banco de dados configurado, mas ainda sem registros de risco.",
+            )
+
+        records = (
+            db.query(NeighborhoodRiskMeasurement)
+            .filter(NeighborhoodRiskMeasurement.data_medicao == latest_timestamp)
+            .order_by(NeighborhoodRiskMeasurement.bairro.asc())
+            .all()
+        )
+
+    neighborhoods = [_measurement_to_neighborhood(record) for record in records]
+
+    return GoldRiskSnapshot(
+        generated_at=latest_timestamp.isoformat(),
+        source_updated_at=latest_timestamp.isoformat(),
+        neighborhoods_count=len(neighborhoods),
+        neighborhoods=neighborhoods,
+        source="PostgreSQL",
+    )
+
+
 def get_gold_risk_snapshot() -> GoldRiskSnapshot:
+    if is_database_enabled():
+        return _latest_database_snapshot()
+
     records, _, source_updated_at = _load_gold_records()
     neighborhoods = [_normalize_record(record) for record in records]
 
@@ -152,6 +235,25 @@ def get_gold_risk_snapshot() -> GoldRiskSnapshot:
 
 
 def get_raw_gold_risk_records() -> list[dict[str, Any]]:
+    if is_database_enabled():
+        session_factory = get_session_factory()
+        if session_factory is None:
+            raise HTTPException(status_code=503, detail="Banco de dados nao configurado.")
+
+        with session_factory() as db:
+            latest_timestamp = db.query(func.max(NeighborhoodRiskMeasurement.data_medicao)).scalar()
+            if latest_timestamp is None:
+                return []
+
+            records = (
+                db.query(NeighborhoodRiskMeasurement)
+                .filter(NeighborhoodRiskMeasurement.data_medicao == latest_timestamp)
+                .order_by(NeighborhoodRiskMeasurement.bairro.asc())
+                .all()
+            )
+
+        return [_measurement_to_raw_record(record) for record in records]
+
     records, _, _ = _load_gold_records()
     return records
 
@@ -168,3 +270,76 @@ def get_neighborhood_risk(bairro: str) -> NeighborhoodRisk:
         status_code=404,
         detail=f"Bairro nao encontrado no JSON Gold: {bairro}",
     )
+
+
+def ingest_gold_risk_records(
+    records: list[GoldRiskIngestionRecord],
+    db: Session,
+) -> GoldRiskIngestionResponse:
+    inserted = 0
+    ignored_duplicates = 0
+
+    for item in records:
+        existing_record = (
+            db.query(NeighborhoodRiskMeasurement)
+            .filter(
+                NeighborhoodRiskMeasurement.bairro == item.bairro,
+                NeighborhoodRiskMeasurement.data_medicao == item.data,
+            )
+            .first()
+        )
+
+        if existing_record:
+            ignored_duplicates += 1
+            continue
+
+        db.add(
+            NeighborhoodRiskMeasurement(
+                data_medicao=item.data,
+                municipio=item.municipio,
+                rpa=item.rpa,
+                bairro=item.bairro,
+                elevacao_metros=item.elevacao_metros,
+                precipitacao_atual=item.precipitacao_atual,
+                chuva_1h=item.chuva_1h,
+                chuva_6h=item.chuva_6h,
+                chuva_12h=item.chuva_12h,
+                chuva_24h=item.chuva_24h,
+                altura_mare=item.altura_mare,
+                status_mare=item.status_mare,
+                precipitacao_prevista_24h=item.precipitacao_prevista_24h,
+                prob_alagamento=item.prob_alagamento,
+                alagamento_previsto=item.alagamento_previsto,
+                score_risco=item.score_risco,
+                nivel_risco=item.nivel_risco,
+            )
+        )
+        inserted += 1
+
+    if inserted:
+        db.commit()
+
+    return GoldRiskIngestionResponse(
+        inserted=inserted,
+        ignored_duplicates=ignored_duplicates,
+        received=len(records),
+        message=f"{inserted} registro(s) inserido(s); {ignored_duplicates} duplicado(s) ignorado(s).",
+    )
+
+
+def get_neighborhood_history(bairro: str, db: Session, limit: int = 24) -> list[NeighborhoodRisk]:
+    records = (
+        db.query(NeighborhoodRiskMeasurement)
+        .filter(NeighborhoodRiskMeasurement.bairro.ilike(bairro))
+        .order_by(desc(NeighborhoodRiskMeasurement.data_medicao))
+        .limit(limit)
+        .all()
+    )
+
+    if not records:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Nenhum historico encontrado para o bairro '{bairro}'.",
+        )
+
+    return [_measurement_to_neighborhood(record) for record in records]

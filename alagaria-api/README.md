@@ -1,15 +1,20 @@
 ## Fonte dos Dados
 
-A fonte unica da API e o JSON Gold gerado pelo pipeline Databricks:
+A fonte de verdade continua sendo o Gold gerado pelo pipeline Databricks:
 
 ```text
 risco_bairros_atual.json
 ```
 
-Esse arquivo e produzido pelo notebook `08_logica_fuzzy.py`, depois que o
-pipeline Bronze/Silver/Gold consolida chuva, mare, elevacao e modelos de IA
-por bairro. A API nao consulta APAC, Open-Meteo ou outras fontes externas em
-tempo de requisicao; ela apenas entrega o Gold em um contrato HTTP estavel.
+Em producao, o fluxo recomendado e:
+
+```text
+Databricks -> POST /ingestao -> Postgres -> GET /risk/bairros -> frontend
+```
+
+Em desenvolvimento local, se `DATABASE_URL` nao estiver definido, a API le o
+arquivo configurado em `GOLD_RISK_JSON_PATH`. Esse modo local existe para teste
+rapido; o caminho de longo prazo e persistir snapshots no Postgres.
 
 ## Como rodar
 
@@ -31,9 +36,32 @@ copy .env.example .env
 uvicorn app.main:app --reload
 ```
 
+Para usar Postgres local com Docker:
+
+```bash
+docker run --name pg_alagaria -e POSTGRES_PASSWORD=senha -e POSTGRES_DB=recife_gis -p 5432:5432 -d postgres:16
+```
+
+No `.env`:
+
+```env
+DATABASE_URL=postgresql://postgres:senha@localhost:5432/recife_gis
+```
+
 ## Endpoints principais
 
-### Risco por bairro (JSON Gold)
+### Ingestao do Gold no Postgres
+
+Endpoint usado pelo Databricks depois de gerar o snapshot de risco:
+
+```http
+POST /ingestao
+```
+
+O corpo deve ser o array do `risco_bairros_atual.json`, no formato cru do
+notebook `08_logica_fuzzy.py`.
+
+### Risco por bairro
 
 Este e o endpoint principal para o frontend:
 
@@ -41,9 +69,8 @@ Este e o endpoint principal para o frontend:
 GET /risk/bairros
 ```
 
-Ele le o arquivo configurado em `GOLD_RISK_JSON_PATH`, gerado pelo notebook
-`08_logica_fuzzy.py` como `risco_bairros_atual.json`, e devolve uma resposta
-normalizada para consumo do front.
+Ele devolve o snapshot mais recente salvo no Postgres. Quando `DATABASE_URL`
+nao estiver configurado, usa o JSON local configurado em `GOLD_RISK_JSON_PATH`.
 
 Exemplo:
 
@@ -83,6 +110,12 @@ Para detalhe de um bairro:
 
 ```http
 GET /risk/bairros/Boa%20Viagem
+```
+
+Para historico de um bairro:
+
+```http
+GET /risk/bairros/Boa%20Viagem/historico
 ```
 
 Para inspecionar o JSON original, sem normalizacao:

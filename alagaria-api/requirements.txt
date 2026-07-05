@@ -3,3 +3,5 @@ uvicorn[standard]==0.34.0
 pydantic==2.10.4
 python-dotenv==1.0.1
 pydantic-settings==2.7.1
+SQLAlchemy==2.0.51
+psycopg2-binary==2.9.12

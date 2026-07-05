@@ -92,7 +92,7 @@ const Layout = ({ children, bairroSelecionado, onClosePainel, statusIntegracao }
                         <div className="flex items-center justify-between gap-4">
                             {isLegendOpen && (
                                 <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                                    Legenda de Alerta (APAC)
+                                    Legenda de Alerta
                                 </h3>
                             )}
 

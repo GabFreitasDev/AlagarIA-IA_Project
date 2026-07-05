@@ -7,7 +7,7 @@
 // linguísticos: "baixo", "moderado", "alto", "critico".
 //
 // O frontend (mapa, legenda, badges) já usa 4 status equivalentes, com os
-// nomes usados no domínio de Defesa Civil / APAC:
+// nomes usados no domínio de Defesa Civil:
 //
 //   baixo    -> normal      (verde)
 //   moderado -> atencao     (amarelo)
