@@ -1,20 +1,15 @@
-## Fonte dos dados
+## Fonte dos Dados
 
-A API usa o serviço público ArcGIS da APAC:
+A fonte unica da API e o JSON Gold gerado pelo pipeline Databricks:
 
-`https://geoportal.apac.pe.gov.br/server/rest/services/met_monitoramento_chuvas_pe/MapServer`
+```text
+risco_bairros_atual.json
+```
 
-Camadas usadas:
-
-| Intervalo | Layer |
-|---|---:|
-| 1h | 0 |
-| 3h | 1 |
-| 6h | 2 |
-| 12h | 3 |
-| 24h | 4 |
-| 48h | 5 |
-| 72h | 6 |
+Esse arquivo e produzido pelo notebook `08_logica_fuzzy.py`, depois que o
+pipeline Bronze/Silver/Gold consolida chuva, mare, elevacao e modelos de IA
+por bairro. A API nao consulta APAC, Open-Meteo ou outras fontes externas em
+tempo de requisicao; ela apenas entrega o Gold em um contrato HTTP estavel.
 
 ## Como rodar
 
@@ -38,6 +33,77 @@ uvicorn app.main:app --reload
 
 ## Endpoints principais
 
+### Risco por bairro (JSON Gold)
+
+Este e o endpoint principal para o frontend:
+
+```http
+GET /risk/bairros
+```
+
+Ele le o arquivo configurado em `GOLD_RISK_JSON_PATH`, gerado pelo notebook
+`08_logica_fuzzy.py` como `risco_bairros_atual.json`, e devolve uma resposta
+normalizada para consumo do front.
+
+Exemplo:
+
+```json
+{
+  "city": "Recife",
+  "generated_at": "2026-07-05 14:00:00",
+  "source_updated_at": "2026-07-05T17:05:30+00:00",
+  "neighborhoods_count": 94,
+  "neighborhoods": [
+    {
+      "data": "2026-07-05 14:00:00",
+      "municipio": "Recife",
+      "bairro": "Boa Viagem",
+      "rpa": 6,
+      "elevacao_metros": 4.2,
+      "precipitacao_atual": 12.4,
+      "chuva_1h": 1.2,
+      "chuva_6h": 8.5,
+      "chuva_12h": 10.0,
+      "chuva_24h": 12.4,
+      "altura_mare": 1.8,
+      "status_mare": "enchente",
+      "precipitacao_prevista_24h": 35.7,
+      "prob_alagamento": 0.42,
+      "alagamento_previsto": "Nao",
+      "score_risco": 0.4,
+      "nivel_risco": "moderado"
+    }
+  ],
+  "source": "Databricks Gold",
+  "model": "gold_fuzzy_regression_v1"
+}
+```
+
+Para detalhe de um bairro:
+
+```http
+GET /risk/bairros/Boa%20Viagem
+```
+
+Para inspecionar o JSON original, sem normalizacao:
+
+```http
+GET /risk/raw
+```
+
+Configuracao local:
+
+```bash
+copy .env.example .env
+```
+
+Depois ajuste `GOLD_RISK_JSON_PATH` para o arquivo exportado pelo pipeline. Em
+desenvolvimento local, o caminho padrao e:
+
+```text
+data/risco_bairros_atual.json
+```
+
 ### Health check
 
 ```http
@@ -54,85 +120,26 @@ Resposta esperada:
 }
 ```
 
-### Dados brutos da APAC
-
-```http
-GET /rain/raw/{hours}
-```
-
-Exemplo:
-
-```http
-GET /rain/raw/24
-```
-
-Use este endpoint para inspecionar o JSON original da APAC.
-
-### Chuva em Recife por intervalo
-
-```http
-GET /rain/recife/{hours}
-```
-
-Exemplo:
-
-```http
-GET /rain/recife/24
-```
-
-### Chuva em Recife para vários intervalos
-
-```http
-GET /rain/recife?intervals=1,3,6,12,24
-```
-
-### Predição inicial de risco
-
-```http
-GET /predict/recife
-```
-
-Resposta esperada:
-
-```json
-{
-  "city": "Recife",
-  "flood_probability": 0.4,
-  "risk_level": "moderado",
-  "risk_score": 40,
-  "rain": {
-    "1h": 0.0,
-    "3h": 32.0,
-    "6h": 55.0,
-    "12h": 55.0,
-    "24h": 60.0
-  },
-  "explanation": [
-    "Chuva acumulada em 3h atingiu 32.0 mm, acima do limiar de 30 mm."
-  ],
-  "source": "APAC Geoportal",
-  "model": "rule_based_baseline_v1"
-}
-```
-
 ## Contrato para o frontend
 
-O frontend só precisa consumir:
+O frontend deve consumir o snapshot Gold normalizado:
 
 ```js
-const response = await fetch("http://localhost:8000/predict/recife");
+const response = await fetch("http://localhost:8000/risk/bairros");
 const data = await response.json();
 
-console.log(data.flood_probability);
-console.log(data.risk_level);
-console.log(data.rain);
+console.log(data.generated_at);
+console.log(data.neighborhoods_count);
+console.log(data.neighborhoods);
 ```
 
 Campos importantes:
 
-- `flood_probability`: número entre 0 e 1.
-- `risk_level`: `baixo`, `moderado` ou `alto`.
-- `risk_score`: pontuação de 0 a 100.
-- `rain`: chuva máxima encontrada por intervalo.
-- `explanation`: motivos usados no cálculo.
+- `generated_at`: timestamp mais recente encontrado nos registros do Gold.
+- `neighborhoods_count`: quantidade de bairros retornados; esperado: 94.
+- `neighborhoods`: lista de bairros com risco, chuva, mare e previsoes.
+- `neighborhoods[].bairro`: nome do bairro.
+- `neighborhoods[].score_risco`: score numerico do motor fuzzy.
+- `neighborhoods[].nivel_risco`: `baixo`, `moderado`, `alto` ou `critico`.
+- `neighborhoods[].precipitacao_prevista_24h`: previsao de chuva em 24h.
 

@@ -1,5 +1,4 @@
-from pydantic import BaseModel, Field
-from typing import Any
+from pydantic import BaseModel
 
 
 class HealthResponse(BaseModel):
@@ -8,37 +7,31 @@ class HealthResponse(BaseModel):
     version: str
 
 
-class RainStation(BaseModel):
-    station_name: str | None = None
-    city: str | None = None
-    latitude: float | None = None
-    longitude: float | None = None
-    rainfall_mm: float | None = None
-    raw_attributes: dict[str, Any] = Field(default_factory=dict)
+class NeighborhoodRisk(BaseModel):
+    data: str | None = None
+    municipio: str = "Recife"
+    bairro: str
+    rpa: int | None = None
+    elevacao_metros: float | None = None
+    precipitacao_atual: float | None = None
+    chuva_1h: float | None = None
+    chuva_6h: float | None = None
+    chuva_12h: float | None = None
+    chuva_24h: float | None = None
+    altura_mare: float | None = None
+    status_mare: str | None = None
+    precipitacao_prevista_24h: float | None = None
+    prob_alagamento: float | None = None
+    alagamento_previsto: str | None = None
+    score_risco: float
+    nivel_risco: str
 
 
-class RainSummary(BaseModel):
-    city: str
-    accumulated_hours: int
-    max_rainfall_mm: float
-    avg_rainfall_mm: float | None = None
-    stations_count: int
-    stations: list[RainStation]
-    source: str = "APAC Geoportal"
-
-
-class RainByInterval(BaseModel):
-    city: str
-    intervals: dict[str, RainSummary]
-    source: str = "APAC Geoportal"
-
-
-class FloodRiskResponse(BaseModel):
-    city: str
-    flood_probability: float
-    risk_level: str
-    risk_score: int
-    rain: dict[str, float]
-    explanation: list[str]
-    source: str = "APAC Geoportal"
-    model: str = "rule_based_baseline_v1"
+class GoldRiskSnapshot(BaseModel):
+    city: str = "Recife"
+    generated_at: str | None = None
+    source_updated_at: str | None = None
+    neighborhoods_count: int
+    neighborhoods: list[NeighborhoodRisk]
+    source: str = "Databricks Gold"
+    model: str = "gold_fuzzy_regression_v1"
