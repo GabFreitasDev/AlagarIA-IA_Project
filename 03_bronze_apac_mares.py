@@ -147,6 +147,15 @@ if dados_mare_consolidados:
 # COMMAND ----------
 
 if dados_mare_consolidados:
+    # Normalizar campos numéricos para float para evitar erro de tipo misto
+    for record in dados_mare_consolidados:
+        if 'altura' in record and isinstance(record['altura'], int):
+            record['altura'] = float(record['altura'])
+        if 'latitude' in record and isinstance(record['latitude'], int):
+            record['latitude'] = float(record['latitude'])
+        if 'longitude' in record and isinstance(record['longitude'], int):
+            record['longitude'] = float(record['longitude'])
+    
     df_bronze_mare = spark.createDataFrame(dados_mare_consolidados)
     print(f"✓ {df_bronze_mare.count()} registro(s) de maré carregados.")
 else:
