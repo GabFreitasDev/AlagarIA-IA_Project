@@ -1,11 +1,11 @@
 # AlagarIA — Sistema Inteligente de Alertas de Alagamento
 
-> Projeto da disciplina de Inteligência Artificial — Engenharia da Computação
-> Professor: Fausto Lorenzato
-> Alunos: Adenilson Neto, Bruno Alberto, Gabriel de Freitas, Lucas Carneiro e Lucas Rafael
+> Projeto da disciplina de Inteligência Artificial — Engenharia da Computação <br>
+> Professor: Fausto Lorenzato <br>
+> Alunos: Adenilson Neto, Bruno Alberto, Gabriel de Freitas, Lucas Carneiro e Lucas Rafael <br>
 > Recife-PE · 2026
 
-AlagarIA monitora dados de chuva, maré e altitude dos 94 bairros de Recife e utiliza dois motores de IA encadeados — **Regressão Linear + Logística** e **Lógica Fuzzy** — para calcular e exibir em tempo real o nível de risco de alagamento de cada bairro.
+AlagarIA monitora dados de chuva, maré e altitude dos 94 bairros de Recife e utiliza dois motores de IA encadeados — **Regressão Linear + Logística e Lógica Fuzzy** — para calcular e exibir em tempo real o nível de risco de alagamento de cada bairro.
 
 ---
 
