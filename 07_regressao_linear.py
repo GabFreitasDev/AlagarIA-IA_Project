@@ -50,11 +50,12 @@ import os
 import numpy as np
 import pandas as pd
 
-from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.linear_model import RidgeCV, LogisticRegression
 from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import (
-    mean_squared_error, r2_score,
+    mean_absolute_error, mean_squared_error, r2_score,
     accuracy_score, classification_report,
     confusion_matrix
 )
@@ -143,7 +144,27 @@ pdf_ord["target_24h_amanha"] = (
 # O último dia de cada bairro não tem "amanhã" — removemos essas linhas
 pdf_modelo1 = pdf_ord.dropna(subset=["target_24h_amanha"]).copy()
 
-FEATURES_LINEAR = ["1_hora", "6_horas", "12_horas", "24_horas"]
+pdf_modelo1["data_ts"] = pd.to_datetime(pdf_modelo1["data"])
+pdf_modelo1["mes"] = pdf_modelo1["data_ts"].dt.month
+pdf_modelo1["dia_ano"] = pdf_modelo1["data_ts"].dt.dayofyear
+pdf_modelo1["dia_ano_sin"] = np.sin(2 * np.pi * pdf_modelo1["dia_ano"] / 365.25)
+pdf_modelo1["dia_ano_cos"] = np.cos(2 * np.pi * pdf_modelo1["dia_ano"] / 365.25)
+
+FEATURES_LINEAR = [
+    "1_hora",
+    "6_horas",
+    "12_horas",
+    "24_horas",
+    "mes",
+    "dia_ano_sin",
+    "dia_ano_cos",
+    "altura_mare",
+    "elevacao_metros",
+    "RPA",
+]
+for coluna in FEATURES_LINEAR:
+    pdf_modelo1[coluna] = pd.to_numeric(pdf_modelo1[coluna], errors="coerce")
+
 X_linear = pdf_modelo1[FEATURES_LINEAR].fillna(0).values
 y_linear = pdf_modelo1["target_24h_amanha"].values
 
@@ -194,26 +215,45 @@ print(f"  Balanceamento: {y_logistica.sum():,} Sim ({y_logistica.mean()*100:.1f}
 
 # COMMAND ----------
 
-X_train_l, X_test_l, y_train_l, y_test_l = train_test_split(
-    X_linear, y_linear, test_size=0.2, random_state=42
-)
+datas_unicas = np.array(sorted(pdf_modelo1["data"].unique()))
+indice_corte = int(len(datas_unicas) * 0.8)
+datas_treino = set(datas_unicas[:indice_corte])
+mascara_treino_linear = pdf_modelo1["data"].isin(datas_treino)
 
-modelo_linear = LinearRegression()
+X_train_l = pdf_modelo1.loc[mascara_treino_linear, FEATURES_LINEAR].fillna(0).values
+X_test_l = pdf_modelo1.loc[~mascara_treino_linear, FEATURES_LINEAR].fillna(0).values
+y_train_l = pdf_modelo1.loc[mascara_treino_linear, "target_24h_amanha"].values
+y_test_l = pdf_modelo1.loc[~mascara_treino_linear, "target_24h_amanha"].values
+
+modelo_linear = Pipeline(steps=[
+    ("scaler", StandardScaler()),
+    ("ridge", RidgeCV(alphas=np.logspace(-3, 3, 13))),
+])
 modelo_linear.fit(X_train_l, y_train_l)
 
 y_pred_l = modelo_linear.predict(X_test_l)
 y_pred_l = np.clip(y_pred_l, 0, None)  # precipitação não pode ser negativa
 
 rmse = float(np.sqrt(mean_squared_error(y_test_l, y_pred_l)))
+mae  = float(mean_absolute_error(y_test_l, y_pred_l))
 r2   = float(r2_score(y_test_l, y_pred_l))
+baseline_persistencia = np.clip(X_test_l[:, FEATURES_LINEAR.index("24_horas")], 0, None)
+rmse_baseline = float(np.sqrt(mean_squared_error(y_test_l, baseline_persistencia)))
+ganho_rmse_vs_baseline = float((rmse_baseline - rmse) / rmse_baseline) if rmse_baseline else 0.0
+alpha_ridge = float(modelo_linear.named_steps["ridge"].alpha_)
 
 print("── Modelo 1: Regressão Linear ──────────────────────────────")
 print(f"  RMSE : {rmse:.2f} mm  (erro médio na previsão de amanhã)")
 print(f"  R²   : {r2:.4f}     (variância explicada pelo modelo)")
 print(f"  Coeficientes por feature:")
-for feat, coef in zip(FEATURES_LINEAR, modelo_linear.coef_):
-    print(f"    {feat:12s}: {coef:+.4f}")
-print(f"  Intercepto: {modelo_linear.intercept_:+.4f}")
+print(f"  MAE  : {mae:.2f} mm")
+print(f"  Baseline persistencia RMSE: {rmse_baseline:.2f} mm")
+print(f"  Ganho vs baseline       : {ganho_rmse_vs_baseline*100:.1f}%")
+print(f"  Ridge alpha escolhido   : {alpha_ridge:.4f}")
+print(f"  Split temporal          : treino ate {datas_unicas[indice_corte-1]} | teste desde {datas_unicas[indice_corte]}")
+for feat, coef in zip(FEATURES_LINEAR, modelo_linear.named_steps["ridge"].coef_):
+    print(f"    {feat:16s}: {coef:+.4f}")
+print(f"  Intercepto: {modelo_linear.named_steps['ridge'].intercept_:+.4f}")
 
 # COMMAND ----------
 
@@ -307,7 +347,11 @@ log_treino = spark.createDataFrame([{
     "sucesso": True,
     "fonte_historico": "base_ficticia",
     "rmse_linear": rmse,
+    "mae_linear": mae,
     "r2_linear": r2,
+    "rmse_baseline_persistencia": rmse_baseline,
+    "ganho_rmse_vs_baseline": ganho_rmse_vs_baseline,
+    "alpha_ridge": alpha_ridge,
     "acuracia_logistica": acuracia,
     "amostras_treino_linear": int(len(X_train_l)),
     "amostras_treino_logistica": int(len(X_train_log)),
