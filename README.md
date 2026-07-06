@@ -1,320 +1,344 @@
-# AlagarIA — Sistema Inteligente de Alertas de Alagamento
+# AlagarIA - Sistema Inteligente de Alertas de Alagamento
 
-> Projeto da disciplina de Inteligência Artificial — Engenharia da Computação <br>
-> Professor: Fausto Lorenzato <br>
-> Alunos: Adenilson Neto, Bruno Alberto, Gabriel de Freitas, Lucas Carneiro e Lucas Rafael <br>
-> Recife-PE · 2026
+Projeto da disciplina de Inteligencia Artificial do curso de Engenharia da
+Computacao.
 
-AlagarIA monitora dados de chuva, maré e altitude dos 94 bairros de Recife e utiliza dois motores de IA encadeados — **Regressão Linear + Logística e Lógica Fuzzy** — para calcular e exibir em tempo real o nível de risco de alagamento de cada bairro.
+AlagarIA monitora chuva, mare e altitude dos 94 bairros de Recife e usa modelos
+de IA encadeados com logica fuzzy para calcular o nivel de risco de alagamento
+por bairro.
 
----
+## Fluxo Principal
 
-## Avaliação do Projeto
-
-### O que foi entregue
-
-| Componente | Status | Observação |
-|---|---|---|
-| Pipeline de dados (Bronze → Silver → Gold) | ✅ Completo | 6 notebooks Databricks, arquitetura medalhão |
-| Ingestão de precipitação (APAC) | ✅ Funcional | Via script local + upload manual (limitação de rede) |
-| Ingestão de maré (APAC) | ✅ Funcional | Seleção por proximidade de horário, média entre praias |
-| Altitude dos 94 bairros | ✅ Funcional | Open-Meteo Elevation API |
-| IDW espacial por RPA | ✅ Funcional | Testado empiricamente |
-| Motor de Regressão Linear | ✅ Funcional | Prevê P24h por bairro |
-| Motor de Regressão Logística | ✅ Funcional | Prevê probabilidade de alagamento |
-| Lógica Fuzzy (3 variáveis, 4 níveis) | ✅ Funcional | Pertinência + regras + defuzzificação por centroide |
-| Backend FastAPI | ✅ Funcional | Modo arquivo JSON e modo PostgreSQL |
-| Frontend React + Leaflet | ✅ Funcional | Mapa interativo com score por bairro |
-| Governança (logs, controle de arquivos, validações) | ✅ Completo | 4 tabelas de auditoria |
-
-### Pontos fortes
-- A arquitetura de separação de responsabilidades (dados → IA → backend → frontend) está bem implementada e cada camada tem papel claro.
-- O motor de IA é o ponto de maior destaque: dois modelos encadeados com lógica fuzzy de 4 níveis, com funções de pertinência calibradas para a realidade climática do Recife (limiares baseados em sazonalidade real — pico Abr/Mai/Jun).
-- O backend tem dois modos de operação (arquivo JSON direto ou PostgreSQL), o que torna o projeto resiliente para demonstração sem infraestrutura de banco.
-- A governança de dados (logs de execução, controle de arquivos processados, validação de schema) está além do esperado para um MVP acadêmico.
-
-### Limitação principal documentada
-O Databricks Community Edition bloqueia chamadas HTTP de saída para `api.apac.pe.gov.br` (IP governamental bloqueado em firewalls de datacenter — confirmado com diagnóstico TCP em dois ambientes de nuvem diferentes). A ingestão da APAC é feita via script local rodado no computador de um integrante, com posterior upload manual para a landing zone. Isso foi documentado como desvio consciente do roteiro original ("scheduler automático a cada 15 min").
-
----
-
-## Estrutura do Repositório
-
-```
-AlagarIA-IA_Project/
-├── 00_setup_catalog.ipynb          # Configuração inicial do catálogo Databricks (roda 1x)
-├── 01_bronze_apac_precipitacao.py  # Ingestão de chuva da landing zone
-├── 02_bronze_altitude_ElevationAPI.ipynb  # Altitude dos 94 bairros (roda 1x)
-├── 03_bronze_apac_mares.py         # Ingestão de maré da landing zone
-├── 04_bronze_to_silver.py          # IDW por RPA + seleção de maré por horário
-├── 05_silver_to_gold.py            # Snapshot mais recente → JSON para o backend
-├── 07_regressao_linear.py          # Treino dos modelos de regressão (roda 1x)
-├── 08_logica_fuzzy.py              # Motor operacional: predição + fuzzy → JSON de risco
-├── APIs/
-│   ├── apac_client.py              # Script local: coleta precipitação da APAC
-│   ├── apac_mare_client.py         # Script local: coleta maré da APAC
-│   ├── elevation_client.py         # Chamado pelo notebook 02
-│   ├── openmeteo_client.py         # Chamado pelo notebook 06 (histórico)
-│   ├── bairros_recife_coords.json  # Coordenadas dos 94 bairros
-│   └── bairros_rpa.json            # Mapeamento bairro → RPA
-├── utils/
-│   ├── catalogo.py                 # Constantes e função tabela()
-│   └── qualidade.py                # Funções de validação de schema
-├── alagaria-api/                   # Backend FastAPI
-│   ├── app/
-│   │   ├── main.py
-│   │   ├── routes/risk.py
-│   │   └── services/gold_risk_repository.py
-│   ├── .env.example
-│   └── requirements.txt
-└── frontend/                       # Frontend React + Leaflet
-    ├── src/
-    │   ├── App.jsx
-    │   ├── components/
-    │   └── hooks/useRiscoBairros.js
-    └── package.json
+```text
+Databricks / notebooks
+  -> 07_regressao_linear.py treina os modelos
+  -> 08_logica_fuzzy.py gera o JSON Gold de risco
+  -> POST /ingestao envia o Gold para a API
+  -> Postgres guarda snapshots e historico
+  -> GET /risk/bairros entrega o snapshot atual
+  -> frontend exibe mapa, painel e historico
 ```
 
----
+A API nao consulta APAC nem fontes externas diretamente. Ela serve dados Gold ja
+processados.
 
-## Pré-requisitos
+## Estrutura
 
-| Componente | Versão mínima |
-|---|---|
-| Databricks Community Edition | Qualquer (gratuito) |
-| Python (scripts locais) | 3.10+ |
-| Node.js (frontend) | 18+ |
-| pip package: `requests` | Qualquer |
-
----
-
-## Como Rodar — Passo a Passo
-
-### 1. Configuração inicial do Databricks (uma única vez)
-
-Importe todos os arquivos `.py` e `.ipynb` da raiz do repositório para o seu Workspace no Databricks:
-
-**Catalog → Workspace → Import → selecionar os arquivos**
-
-Depois execute o notebook `00_setup_catalog.ipynb`. Ele cria:
-- Catálogo `alerta_alagamento_recife`
-- Schemas: `bronze`, `silver`, `gold`, `governanca`
-- Volume `landing_zone` dentro do schema `bronze`
-
-> ⚠️ **Atenção:** todos os outros notebooks fazem `sys.path.append` com o caminho do Workspace de Gabriel (`gabriel.fo.br@gmail.com`). Se você estiver rodando em outro usuário, atualize essa linha no Bloco 1 de cada notebook para o seu caminho real antes de executar.
-
-### 2. Altitude dos bairros (uma única vez)
-
-Execute `02_bronze_altitude_ElevationAPI.ipynb`. Ele chama a Open-Meteo Elevation API diretamente do cluster (sem bloqueio de rede) e cria a tabela `bronze.open_meteo_elevation` com os 94 bairros, coordenadas, RPA e altitude.
-
-### 3. Geração da base histórica fictícia (uma única vez)
-
-No seu computador local, gere o arquivo de base histórica que será usado para treinar os modelos:
-
-```bash
-# Na pasta raiz do projeto
-python APIs/gerar_base_ficticia.py
+```text
+.
+|-- 00_setup_catalog.ipynb
+|-- 01_bronze_apac_precipitacao.py
+|-- 02_bronze_altitude_ElevationAPI.ipynb
+|-- 03_bronze_apac_mares.py
+|-- 04_bronze_to_silver.py
+|-- 05_silver_to_gold.py
+|-- 07_regressao_linear.py
+|-- 08_logica_fuzzy.py
+|-- APIs/
+|-- utils/
+|-- alagaria-api/
+`-- frontend/
 ```
 
-Isso gera `historico_ficticio_180dias_recife.json` (≈ 5MB, 16.920 registros).
+## Como Rodar Localmente
 
-Em seguida, faça upload desse arquivo para a landing zone no Databricks:
+Use tres terminais: um para Postgres, um para API e um para frontend.
 
-**Catalog → alerta_alagamento_recife → bronze → Volumes → landing_zone → Upload**
+### 1. Subir O Postgres
 
-### 4. Treino dos modelos de IA (uma única vez, após o passo 3)
+Abra o Docker Desktop e espere o engine iniciar. Depois rode:
 
-Execute `07_regressao_linear.py`. Ele:
-- Carrega a base fictícia da landing zone
-- Treina a Regressão Linear (prevê P24h)
-- Treina a Regressão Logística (prevê probabilidade de alagamento)
-- Salva os 3 artefatos (`.pkl`) no Volume `gold/modelos/`
-
-> O notebook imprime RMSE, R² e acurácia ao final. Guarde esses números para a defesa do projeto.
-
-### 5. Rotina diária de ingestão
-
-A cada dia, **antes das 03h**, rode localmente:
-
-```bash
-# Na pasta APIs/
-python apac_client.py
-python apac_mare_client.py
+```powershell
+docker run --name pg_alagaria `
+  -e POSTGRES_PASSWORD=senha `
+  -e POSTGRES_DB=recife_gis `
+  -p 5432:5432 `
+  -d postgres:16
 ```
 
-Dois arquivos serão gerados na pasta local:
-- `precipAcum_AAAA-MM-DD.json`
-- `mare_AAAA-MM-DD.json`
+Nas proximas execucoes:
 
-Faça upload de ambos no Databricks:
-
-**Catalog → bronze → Volumes → landing_zone → apac_precipitacao** (para o de chuva)  
-**Catalog → bronze → Volumes → landing_zone → apac_mares** (para o de maré)
-
-### 6. Jobs automáticos no Databricks (03h, 11h, 19h)
-
-Configure um Databricks Job com a seguinte sequência de tarefas:
-
-```
-01_bronze_apac_precipitacao
-        ↓
-03_bronze_apac_mares
-        ↓
-04_bronze_to_silver
-        ↓
-05_silver_to_gold
-        ↓
-08_logica_fuzzy
+```powershell
+docker start pg_alagaria
 ```
 
-Agendamento (cron Quartz, horário de Recife `America/Recife`):
+Para conferir:
 
+```powershell
+docker ps
 ```
-0 0 3,11,19 * * ?
-```
 
-> **Como configurar:** no Job, clique em "Add trigger" → Scheduled → Custom cron → cole a expressão acima → selecione o timezone `America/Recife`.
+### 2. Subir A API
 
-O notebook `08_logica_fuzzy.py` gera o arquivo `risco_bairros_atual.json` no Volume Gold ao final de cada execução. Esse é o arquivo que o backend consome.
+```powershell
+cd C:\Users\lucas\AlagarIA-IA_Project\alagaria-api
 
----
-
-## Backend (FastAPI)
-
-### Instalação
-
-```bash
-cd alagaria-api
-cp .env.example .env
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+copy .env.example .env
 ```
 
-### Configuração do `.env`
+No arquivo `alagaria-api/.env`, deixe:
 
 ```env
-# Caminho para o JSON exportado pelo notebook 08
-# Use caminho absoluto ou relativo à pasta alagaria-api/
+DATABASE_URL=postgresql://postgres:senha@localhost:5432/recife_gis
 GOLD_RISK_JSON_PATH=data/risco_bairros_atual.json
-
-# Opcional: banco PostgreSQL (se não definido, lê direto do JSON)
-DATABASE_URL=
 ```
 
-### Como apontar para o JSON do Databricks
+Suba a API:
 
-O backend lê o arquivo `risco_bairros_atual.json` localmente. Você precisa baixar esse arquivo do Volume Gold do Databricks e colocar em `alagaria-api/data/`:
-
-**Catalog → gold → Volumes → exportacoes → risco_bairros_atual.json → Download**
-
-Renomeie se necessário e coloque em `alagaria-api/data/risco_bairros_atual.json`.
-
-> Para automação futura, o script `scripts/ingest_gold_json.py` pode ser configurado para buscar e inserir os dados no PostgreSQL periodicamente.
-
-### Execução
-
-```bash
-uvicorn app.main:app --reload --port 8000
+```powershell
+uvicorn app.main:app --reload
 ```
 
-### Endpoints principais
+Ela ficara em:
 
-| Método | Endpoint | Descrição |
-|---|---|---|
-| GET | `/risk/bairros` | Snapshot completo dos 94 bairros com score de risco |
-| GET | `/risk/bairros/{bairro}` | Dados de um bairro específico |
-| GET | `/risk/bairros/{bairro}/historico` | Histórico de medições do bairro (requer PostgreSQL) |
-| GET | `/risk/raw` | JSON Gold bruto sem normalização |
-| GET | `/health` | Status da API |
+```text
+http://127.0.0.1:8000
+```
 
-Documentação interativa disponível em `http://localhost:8000/docs`.
+### 3. Carregar Dados Gold No Banco
 
----
+Se o banco estiver vazio, o endpoint `/risk/bairros` retorna `503`. Para fazer
+uma carga local com um JSON Gold:
 
-## Frontend (React + Vite + Leaflet)
+```powershell
+cd C:\Users\lucas\AlagarIA-IA_Project\alagaria-api
+.\.venv\Scripts\python.exe scripts\ingest_gold_json.py C:\Users\lucas\Downloads\risco_bairros_atual.json
+```
 
-### Instalação e execução
+Para usar o fallback versionado do frontend como carga de desenvolvimento:
 
-```bash
-cd frontend
-cp .env.example .env
+```powershell
+.\.venv\Scripts\python.exe scripts\ingest_gold_json.py ..\frontend\src\data\riscoBairrosFallback.json
+```
+
+Depois confira:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/risk/bairros
+```
+
+### 4. Subir O Frontend
+
+Use Node `20.19+`.
+
+```powershell
+cd C:\Users\lucas\AlagarIA-IA_Project\frontend
+
 npm install
+copy .env.example .env.local
 npm run dev
 ```
 
-O frontend estará disponível em `http://localhost:5173`.
-
-### Configuração da API
-
-No arquivo `frontend/.env`, configure a URL do backend:
+No `frontend/.env.local`:
 
 ```env
-VITE_API_URL=http://localhost:8000
+VITE_API_BASE_URL=http://localhost:8000
 ```
 
-Se o backend não estiver disponível, o frontend usa automaticamente o arquivo fallback em `src/data/riscoBairrosFallback.json` para exibir dados mesmo sem conexão.
+Abra:
 
-### O que a interface exibe
+```text
+http://127.0.0.1:5173
+```
 
-- **Mapa do Recife** com os 94 bairros coloridos por nível de risco (baixo → verde, moderado → amarelo, alto → laranja, crítico → vermelho)
-- **Painel lateral** ao clicar em um bairro: score de risco, precipitação atual, previsão para 24h, altura da maré, probabilidade de alagamento
-- **Gráfico de histórico** com as últimas 24h de dados do bairro selecionado
+O frontend busca `/risk/bairros` automaticamente e atualiza a cada 5 minutos.
+Se a API estiver indisponivel, ele usa `frontend/src/data/riscoBairrosFallback.json`.
 
----
+## Endpoints Da API
 
-## Motor de IA — Como Funciona
+### Health
 
-O sistema encadeia dois motores em sequência a cada execução do notebook 08:
+```http
+GET /health
+```
 
-### Etapa 1 — Regressão Linear
-Recebe os acumulados de chuva atuais do bairro (1h, 6h, 12h, 24h) e prevê a precipitação das próximas 24h. Foi treinado com autocorrelação temporal: dias chuvosos tendem a ser seguidos de mais chuva (padrão real do inverno nordestino).
+### Ingestao Do Gold
 
-### Etapa 2 — Regressão Logística
-Recebe os acumulados de chuva + altura da maré + altitude do bairro e prevê a probabilidade de alagamento (0 a 1). Treinada com a base fictícia de 180 dias, que emula o pico de alagamentos de Abril/Maio/Junho em Recife.
+```http
+POST /ingestao
+```
 
-### Etapa 3 — Lógica Fuzzy
-Recebe a precipitação prevista (da etapa 1) + maré atual + altitude e classifica o risco em 4 níveis usando funções de pertinência trapezoidais e regras do tipo "SE... ENTÃO...". A defuzzificação é feita pelo método do centroide.
+Recebe o array cru do Gold, no formato gerado pelo `08_logica_fuzzy.py`, e grava
+os registros no Postgres. Duplicados sao ignorados por bairro e data.
 
-| Nível | Score | Descrição |
-|---|---|---|
-| Baixo | 0.00 – 0.24 | Sem risco relevante |
-| Moderado | 0.25 – 0.49 | Vigilância — monitorar |
-| Alto | 0.50 – 0.74 | Risco real — atenção |
-| Crítico | 0.75 – 1.00 | Evacuação recomendada |
+### Snapshot Para O Frontend
 
----
+```http
+GET /risk/bairros
+```
 
-## Observações e Pensamentos Futuros
+Retorna o snapshot mais recente normalizado para consumo do frontend:
 
-### Limitações conhecidas do MVP
+```json
+{
+  "city": "Recife",
+  "generated_at": "2026-07-05T22:02:50+00:00",
+  "source_updated_at": "2026-07-05T22:02:50+00:00",
+  "neighborhoods_count": 94,
+  "source": "PostgreSQL",
+  "model": "gold_fuzzy_regression_v1",
+  "neighborhoods": [
+    {
+      "data": "2026-07-05T22:02:50+00:00",
+      "municipio": "Recife",
+      "bairro": "Aflitos",
+      "rpa": 3,
+      "score_risco": 0.4439,
+      "nivel_risco": "moderado"
+    }
+  ]
+}
+```
 
-**Ingestão manual da APAC:** o Databricks Community Edition bloqueia chamadas HTTP de saída para domínios governamentais (IP `200.238.75.118`, porta 443 — bloqueio TCP confirmado). A solução definitiva seria migrar para um workspace Databricks em nuvem paga (AWS/Azure/GCP), onde as regras de egress são configuráveis, ou usar um servidor intermediário (ex: AWS Lambda) que chame a APAC e republique o dado em um endpoint acessível do cluster.
+### Detalhe E Historico
 
-**Base de treino fictícia:** os modelos foram treinados com dados sintéticos gerados com padrões climáticos reais do Recife (sazonalidade, distribuição lognormal de chuva, susceptibilidade por RPA), mas não com dados históricos reais de alagamento. Isso limita a precisão do sistema para uso real.
+```http
+GET /risk/bairros/{bairro}
+GET /risk/bairros/{bairro}/historico
+```
 
-**Maré uniforme por bairro:** todos os 94 bairros recebem o mesmo valor de maré. Na prática, bairros à beira-mar e bairros próximos aos rios Capibaribe e Beberibe têm exposição diferente à maré. Uma versão mais precisa usaria o coeficiente de proximidade ao corpo d'água mais relevante para cada bairro.
+### Gold Cru
 
-### Evoluções naturais
+```http
+GET /risk/raw
+```
 
-- **Integração com dados reais de alagamento da Defesa Civil do Recife:** substituiria a base fictícia pela série histórica real, aumentando significativamente a qualidade dos modelos.
-- **Retreinamento automático:** configurar o notebook 07 para rodar semanalmente (Databricks Jobs) com os dados mais recentes, mantendo os modelos calibrados ao longo do tempo.
-- **Alertas por push notification:** o backend já tem a estrutura para isso — bastaria adicionar um serviço de notificação (ex: Firebase Cloud Messaging) acionado quando o score de algum bairro ultrapassa um limiar.
-- **Granularidade por rua:** o IDW atual opera por RPA (6 regiões). Uma versão futura poderia operar por bairro (94 pontos) ou por estação (se a APAC disponibilizar coordenadas detalhadas por estação), aumentando a precisão espacial.
-- **Scheduler externo para ingestão:** usar GitHub Actions (gratuito) com cron agendado para rodar `apac_client.py` e fazer upload automático via Databricks Files API, eliminando a necessidade de intervenção manual.
+Retorna o snapshot mais recente no formato mais proximo do JSON Gold original
+(`Bairro`, `RPA`, `1_hora`, `6_horas`, etc.).
 
----
+## Atualizacao Dos Dados
 
-## Divisão de Responsabilidades
+O frontend nao e atualizado manualmente. Ele sempre consulta a API. Para
+atualizar os dados exibidos:
 
-| Integrante | Área | Notebooks/Arquivos |
-|---|---|---|
-| Gabriel de Freitas | Dados (Pessoa A) | 01, 04, 05, `apac_client.py` |
-| Adenilson Gomes | Dados (Pessoa B) | 03, `apac_mare_client.py` |
-| Pessoa 1 | IA — preparação dos dados | Blocos 2-3 do notebook 07 |
-| Pessoa 2 | IA — treino e persistência | Blocos 4-6 do notebook 07 |
-| Pessoa 3 | IA — funções de pertinência | Bloco 3 do notebook 08 |
-| Pessoa 4 | IA — regras fuzzy | Bloco 4 do notebook 08 |
-| Pessoa 5 | IA — integração e exportação | Blocos 2, 5-6 do notebook 08; backend; frontend |
+```text
+novo JSON Gold
+  -> POST /ingestao
+  -> Postgres
+  -> GET /risk/bairros
+  -> frontend
+```
 
----
+Localmente, rode o script de ingestao com o JSON novo. Em producao, o notebook
+`08_logica_fuzzy.py` deve publicar automaticamente para a API.
 
-*AlagarIA · Engenharia da Computação · 2026*
+## Databricks
+
+### Configuracao Inicial
+
+Importe os notebooks/scripts para o Workspace do Databricks e execute
+`00_setup_catalog.ipynb`. Ele cria o catalogo, schemas e volumes usados pelo
+pipeline.
+
+Se o caminho do Workspace mudar, ajuste os `sys.path.append(...)` dos notebooks
+para apontar para a pasta correta do projeto no Databricks.
+
+### Ordem Do Pipeline
+
+```text
+00_setup_catalog.ipynb       (uma vez)
+02_bronze_altitude_ElevationAPI.ipynb (uma vez)
+07_regressao_linear.py       (treino/recalibracao dos modelos)
+
+01_bronze_apac_precipitacao.py
+03_bronze_apac_mares.py
+04_bronze_to_silver.py
+05_silver_to_gold.py
+08_logica_fuzzy.py
+```
+
+O `08_logica_fuzzy.py` gera automaticamente:
+
+```text
+/Volumes/{CATALOGO}/{SCHEMA_GOLD}/exportacoes/risco_bairros_atual.json
+```
+
+Ele tambem pode publicar o snapshot na API se a variavel de ambiente estiver
+configurada:
+
+```text
+ALAGARIA_API_INGESTION_URL=https://sua-api/ingestao
+```
+
+No Databricks, nao use `localhost` para apontar para sua maquina local. Ali,
+`localhost` e o proprio cluster. A API precisa estar em um host acessivel pelo
+cluster, como um servidor, cloud, endpoint interno ou tunnel temporario.
+
+## Modelos De IA
+
+O `07_regressao_linear.py` treina:
+
+- regressao Ridge calibrada para prever precipitacao das proximas 24h;
+- regressao logistica para probabilidade de alagamento;
+- scaler usado pela logistica.
+
+O `08_logica_fuzzy.py` carrega os modelos, calcula o score fuzzy e gera o JSON
+Gold final.
+
+Depois de calibrar modelos, execute no Databricks:
+
+```text
+1. 07_regressao_linear.py
+2. 08_logica_fuzzy.py
+```
+
+## Limitacoes Conhecidas
+
+- O Databricks Community Edition pode bloquear chamadas HTTP de saida para a
+  APAC. Nesse caso, a coleta APAC deve ser feita localmente e enviada para a
+  landing zone.
+- A base de treino ainda usa dados ficticios com padroes climaticos realistas,
+  nao uma serie historica oficial de alagamentos.
+- A mare e aplicada de forma uniforme por bairro; uma versao futura pode
+  ponderar por proximidade com mar, rios e canais.
+
+## Troubleshooting
+
+### Docker Nao Conecta
+
+Abra o Docker Desktop e espere iniciar. Depois teste:
+
+```powershell
+docker version
+```
+
+### API Retorna 503 Em `/risk/bairros`
+
+O banco esta vazio ou `DATABASE_URL` nao foi configurado. Ingerir um JSON Gold:
+
+```powershell
+cd C:\Users\lucas\AlagarIA-IA_Project\alagaria-api
+.\.venv\Scripts\python.exe scripts\ingest_gold_json.py C:\Users\lucas\Downloads\risco_bairros_atual.json
+```
+
+### Frontend Mostra Modo De Contingencia
+
+Confirme que a API responde:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/risk/bairros
+```
+
+Depois recarregue:
+
+```text
+http://127.0.0.1:5173
+```
+
+### Vite Nao Abre
+
+Confirme Node `20.19+`:
+
+```powershell
+node --version
+```
+
+Rode novamente:
+
+```powershell
+cd C:\Users\lucas\AlagarIA-IA_Project\frontend
+npm run dev
+```

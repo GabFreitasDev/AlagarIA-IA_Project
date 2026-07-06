@@ -34,6 +34,8 @@ sys.path.append("/Workspace/Users/gabriel.fo.br@gmail.com/AlagarIA-IA_Project/ut
 from utils.catalogo import tabela, CATALOGO, SCHEMA_GOLD, SCHEMA_SILVER, SCHEMA_GOVERNANCA
 
 import json
+import urllib.error
+import urllib.request
 import pickle
 import numpy as np
 import pandas as pd
@@ -48,6 +50,7 @@ CAMINHO_MODELO_LINEAR = f"{CAMINHO_MODELOS}/regressao_linear.pkl"
 CAMINHO_MODELO_LOGISTICA = f"{CAMINHO_MODELOS}/regressao_logistica.pkl"
 CAMINHO_SCALER        = f"{CAMINHO_MODELOS}/scaler.pkl"
 CAMINHO_JSON_RISCO    = f"/Volumes/{CATALOGO}/{SCHEMA_GOLD}/exportacoes/risco_bairros_atual.json"
+API_INGESTION_URL     = os.getenv("ALAGARIA_API_INGESTION_URL", "").strip()
 
 # ─────────────────────────────────────────────────────────────────
 # PESSOA 5 — INTEGRAÇÃO: CARREGA DADOS E MODELOS
@@ -350,21 +353,58 @@ print(f"✓ Teste baixo risco (8mm, maré 0.5m, alt 40m): score={teste2['score']
 
 # COMMAND ----------
 
-FEATURES_LINEAR   = ["1_hora", "6_horas", "12_horas", "24_horas"]
+FEATURES_LINEAR = [
+    "1_hora",
+    "6_horas",
+    "12_horas",
+    "24_horas",
+    "mes",
+    "dia_ano_sin",
+    "dia_ano_cos",
+    "altura_mare",
+    "elevacao_metros",
+    "RPA",
+]
 FEATURES_LOGISTICA = ["1_hora", "6_horas", "12_horas", "24_horas",
                        "altura", "elevacao_metros"]
 
 timestamp_atual = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 registros_risco = []
 
+
+def valor_float(linha, *chaves, padrao=0.0):
+    for chave in chaves:
+        valor = linha.get(chave)
+        if valor is not None and valor != "":
+            try:
+                return float(valor)
+            except (TypeError, ValueError):
+                pass
+    return float(padrao)
+
+
+def montar_features_linear(linha):
+    data_ref = pd.to_datetime(linha.get("data"), errors="coerce")
+    if pd.isna(data_ref):
+        data_ref = pd.Timestamp.now(tz="UTC")
+
+    dia_ano = data_ref.dayofyear
+    return np.array([[
+        valor_float(linha, "1_hora"),
+        valor_float(linha, "6_horas"),
+        valor_float(linha, "12_horas"),
+        valor_float(linha, "24_horas"),
+        float(data_ref.month),
+        float(np.sin(2 * np.pi * dia_ano / 365.25)),
+        float(np.cos(2 * np.pi * dia_ano / 365.25)),
+        valor_float(linha, "altura", "altura_mare", padrao=1.0),
+        valor_float(linha, "elevacao_metros", padrao=10.0),
+        valor_float(linha, "RPA", "rpa"),
+    ]])
+
 for _, linha in pdf_atual.iterrows():
     # ── Regressão Linear: prevê precipitação das próximas 24h ──
-    features_lin = np.array([[
-        float(linha.get("1_hora",  0) or 0),
-        float(linha.get("6_horas", 0) or 0),
-        float(linha.get("12_horas",0) or 0),
-        float(linha.get("24_horas",0) or 0),
-    ]])
+    features_lin = montar_features_linear(linha)
     p24h_prevista = float(max(0, modelo_linear.predict(features_lin)[0]))
 
     # ── Regressão Logística: probabilidade de alagamento ────────
@@ -449,7 +489,48 @@ print(f"  {len(registros_risco)} bairros | timestamp: {timestamp_atual}")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Bloco 7 — Log de auditoria da execução
+# MAGIC ## Bloco 7 - Publicar snapshot na API
+# MAGIC
+# MAGIC Se `ALAGARIA_API_INGESTION_URL` estiver configurada, envia o mesmo
+# MAGIC payload Gold para a `alagaria-api`, que persiste os registros no
+# MAGIC Postgres. Em Databricks, nao use `localhost`: configure uma URL
+# MAGIC acessivel pelo cluster.
+
+# COMMAND ----------
+
+if API_INGESTION_URL:
+    request = urllib.request.Request(
+        API_INGESTION_URL,
+        data=json.dumps(registros_risco).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            resposta_api = json.loads(response.read().decode("utf-8"))
+
+        print(f"OK - snapshot publicado na API: {API_INGESTION_URL}")
+        print(json.dumps(resposta_api, ensure_ascii=False, indent=2))
+    except urllib.error.HTTPError as exc:
+        corpo_erro = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(
+            f"Falha ao publicar snapshot na API ({exc.code}): {corpo_erro}"
+        ) from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(
+            f"Nao foi possivel conectar na API em {API_INGESTION_URL}: {exc}"
+        ) from exc
+else:
+    print(
+        "ALAGARIA_API_INGESTION_URL nao configurada; "
+        "JSON Gold gerado, mas snapshot nao foi enviado para a API."
+    )
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Bloco 8 — Log de auditoria da execução
 
 # COMMAND ----------
 
